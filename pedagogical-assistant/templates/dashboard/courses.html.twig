@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Cours</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+        }
+        .navbar {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar h2 { color: #667eea; }
+        .navbar a { 
+            color: #667eea;
+            margin-left: 20px;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+        h1 { color: #333; margin-bottom: 30px; }
+        .card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-4px); }
+        .card h3 { color: #667eea; margin-bottom: 10px; }
+        .card p { color: #666; font-size: 14px; }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover { background: #5568d3; }
+        .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+        .modal.active { display: flex; }
+        .modal-content { background: white; padding: 30px; border-radius: 8px; max-width: 500px; width: 90%; }
+        .modal-content h3 { margin-bottom: 20px; }
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #333; font-weight: 500; }
+        .form-group input, .form-group textarea { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 4px; }
+        .close { float: right; cursor: pointer; font-size: 28px; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h2>📚 Pedagogical Assistant</h2>
+        <div>
+            <a href="/chat">💬 Chat IA</a>
+            <a href="#" onclick="logout()">Déconnexion</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <h1>Mes Cours</h1>
+        <button onclick="openCreateModal()">+ Nouveau cours</button>
+        
+        <div id="coursesList"></div>
+    </div>
+
+    <div id="createModal" class="modal">
+        <div class="modal-content">
+            <span class="close" onclick="closeCreateModal()">&times;</span>
+            <h3>Créer un nouveau plan de cours</h3>
+            <form onsubmit="createCourse(event)">
+                <div class="form-group">
+                    <label>Description du syllabus</label>
+                    <textarea id="syllabusText" required style="height: 100px;"></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Nombre de sessions</label>
+                    <input type="number" id="numSessions" value="8" min="1" max="20">
+                </div>
+                <div class="form-group">
+                    <label>Durée par session (heures)</label>
+                    <input type="number" id="duration" value="3" min="1" max="8">
+                </div>
+                <button type="submit">Générer le plan</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        function openCreateModal() { document.getElementById('createModal').classList.add('active'); }
+        function closeCreateModal() { document.getElementById('createModal').classList.remove('active'); }
+        function logout() { fetch('/api/auth/logout', {method: 'POST', credentials: 'include'}).then(() => window.location.href = '/login'); }
+        
+        async function createCourse(e) {
+            e.preventDefault();
+            const syllabusText = document.getElementById('syllabusText').value;
+            const numSessions = parseInt(document.getElementById('numSessions').value);
+            const duration = parseInt(document.getElementById('duration').value);
+            
+            if (!syllabusText.trim()) {
+                alert('Veuillez entrer le texte du syllabus');
+                return;
+            }
+            
+            try {
+                // Créer le plan directement avec le texte du syllabus
+                const resp = await fetch('/api/ai/generate-course-plan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        syllabus_text: syllabusText,
+                        number_sessions: numSessions,
+                        duration_per_session: duration,
+                        student_level: 'intermediate'
+                    })
+                });
+                
+                if (resp.ok) {
+                    alert('Plan créé! Consultez-le pour voir les sessions.');
+                    closeCreateModal();
+                    loadCourses();
+                } else {
+                    const text = await resp.text();
+                    console.error('Response:', text);
+                    alert('Erreur: ' + (text.substring ? text.substring(0, 100) : 'Erreur inconnue'));
+                }
+            } catch (err) {
+                alert('Erreur: ' + err.message);
+                console.error(err);
+            }
+        }
+
+        async function loadCourses() {
+            try {
+                const resp = await fetch('/api/course_plans', {
+                    credentials: 'include'
+                });
+                const data = await resp.json();
+                const list = document.getElementById('coursesList');
+                
+                // Format JSON-LD: data.member contient les éléments
+                const courses = data.member || data['hydra:member'] || [];
+                
+                if (!courses || courses.length === 0) {
+                    list.innerHTML = '<p>Aucun cours créé. Créez-en un pour commencer.</p>';
+                    return;
+                }
+                
+                list.innerHTML = courses.map(course => `
+                    <div class="card" onclick="viewCourse(${course.id})">
+                        <h3>Plan ${course.id}</h3>
+                        <p>${course.planGeneral?.substring(0, 100) || 'Plan de cours'}</p>
+                        <p><small>Sessions: ${course.sessions?.length || 0}</small></p>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Error loading courses:', err);
+                document.getElementById('coursesList').innerHTML = '<p>Erreur lors du chargement des cours</p>';
+            }
+        }
+
+        function viewCourse(id) { window.location.href = `/course/${id}`; }
+        
+        loadCourses();
+    </script>
+</body>
+</html>

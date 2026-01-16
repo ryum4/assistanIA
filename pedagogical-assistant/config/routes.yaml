@@ -1,0 +1,25 @@
+controllers:
+    resource:
+        path: ../src/Controller/
+        namespace: App\Controller
+    type: attribute
+api_platform_swagger_ui:
+    path: /api/doc
+    methods: GET
+    defaults:
+        _controller: api_platform.swagger_ui.action
+        _format: html
+
+api_platform_swagger_ui_jsonld:
+    path: /api/doc.jsonld
+    methods: GET
+    defaults:
+        _controller: api_platform.swagger_ui.action
+        _format: jsonld
+
+api_platform_redoc:
+    path: /api/redoc
+    methods: GET
+    defaults:
+        _controller: api_platform.redoc.action
+        _format: html

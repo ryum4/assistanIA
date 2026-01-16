@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Test - Pedagogical Assistant</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .header {
+            text-align: center;
+            color: white;
+            margin-bottom: 30px;
+        }
+        .header h1 { font-size: 2.5em; margin-bottom: 10px; }
+        .header p { font-size: 1.1em; opacity: 0.9; }
+        
+        .test-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            transition: transform 0.3s, box-shadow 0.3s;
+        }
+        
+        .card:hover { transform: translateY(-5px); box-shadow: 0 15px 50px rgba(0,0,0,0.3); }
+        
+        .card h3 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.3em;
+            border-bottom: 2px solid #667eea;
+            padding-bottom: 10px;
+        }
+        
+        .form-group {
+            margin-bottom: 12px;
+        }
+        
+        .form-group label {
+            display: block;
+            color: #333;
+            font-weight: 500;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        
+        .form-group textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: opacity 0.3s;
+            width: 100%;
+        }
+        
+        button:hover { opacity: 0.9; }
+        button:active { transform: scale(0.98); }
+        
+        .result {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f5f5f5;
+            border-radius: 6px;
+            border-left: 4px solid #667eea;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.85em;
+        }
+        
+        .result.success { border-left-color: #10b981; background: #f0fdf4; }
+        .result.error { border-left-color: #ef4444; background: #fef2f2; }
+        .result.loading { border-left-color: #f59e0b; background: #fffbeb; }
+        
+        .result pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            color: #333;
+        }
+        
+        .info-box {
+            background: #e0e7ff;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 0.9em;
+            line-height: 1.6;
+        }
+        
+        .info-box strong { color: #667eea; }
+        
+        .endpoint-list {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .endpoint-list h2 {
+            color: #667eea;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .endpoint-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            border-bottom: 1px solid #eee;
+            margin-bottom: 8px;
+        }
+        
+        .endpoint-item:last-child { border-bottom: none; }
+        
+        .method {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 0.85em;
+            margin-right: 10px;
+        }
+        
+        .method.get { background: #dbeafe; color: #1e40af; }
+        .method.post { background: #dcfce7; color: #15803d; }
+        .method.put { background: #fed7aa; color: #9a3412; }
+        .method.delete { background: #fee2e2; color: #991b1b; }
+        
+        .endpoint-path {
+            font-family: monospace;
+            color: #666;
+            flex: 1;
+            font-size: 0.9em;
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85em;
+            font-weight: 600;
+        }
+        
+        .status-badge.ready { background: #d1fae5; color: #065f46; }
+        .status-badge.testing { background: #fef3c7; color: #78350f; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🚀 API Test Dashboard</h1>
+            <p>Test all endpoints of the Pedagogical Assistant</p>
+        </div>
+        
+        <div class="info-box">
+            <strong>⚙️ Setup Required:</strong> 
+            <br>1. PHP dev server must be running: <code>php -S localhost:8000 -t public</code>
+            <br>2. Database must be initialized: <code>php bin/console doctrine:migrations:migrate</code>
+            <br>3. Test data must be created: <code>php test_db.php</code>
+        </div>
+        
+        <div class="endpoint-list">
+            <h2>📋 Available Endpoints</h2>
+            
+            <div class="endpoint-item">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/auth/register</span>
+                </div>
+                <span class="status-badge ready">Ready</span>
+            </div>
+            
+            <div class="endpoint-item">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/auth/login</span>
+                </div>
+                <span class="status-badge ready">Ready</span>
+            </div>
+            
+            <div class="endpoint-item">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/ai/generate-course-plan</span>
+                </div>
+                <span class="status-badge ready">Ready</span>
+            </div>
+            
+            <div class="endpoint-item">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/ai/generate-exercises</span>
+                </div>
+                <span class="status-badge ready">Ready</span>
+            </div>
+            
+            <div class="endpoint-item">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/ai/chat</span>
+                </div>
+                <span class="status-badge testing">Testing</span>
+            </div>
+            
+            <div class="endpoint-item">
+                <div>
+                    <span class="method post">POST</span>
+                    <span class="endpoint-path">/api/ai/correct-exercise</span>
+                </div>
+                <span class="status-badge ready">Ready</span>
+            </div>
+        </div>
+        
+        <div class="test-grid">
+            <!-- Test Authentication -->
+            <div class="card">
+                <h3>🔐 Authentication</h3>
+                
+                <div class="form-group">
+                    <label>Email:</label>
+                    <input type="email" id="auth-email" value="prof@example.com">
+                </div>
+                
+                <div class="form-group">
+                    <label>Password:</label>
+                    <input type="password" id="auth-password" value="password123">
+                </div>
+                
+                <button onclick="testLogin()">Test Login</button>
+                
+                <div id="auth-result" class="result" style="display:none;"></div>
+            </div>
+            
+            <!-- Test Chat -->
+            <div class="card">
+                <h3>💬 Chat Endpoint</h3>
+                
+                <div class="form-group">
+                    <label>Message:</label>
+                    <textarea id="chat-message" placeholder="Ask a pedagogical question...">How to teach fractions to elementary students?</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Context (optional):</label>
+                    <input type="text" id="chat-context" placeholder="e.g., mathematics, grade-3">
+                </div>
+                
+                <button onclick="testChat()">Send Message</button>
+                
+                <div id="chat-result" class="result" style="display:none;"></div>
+            </div>
+            
+            <!-- Test Course Generation -->
+            <div class="card">
+                <h3>📚 Generate Course Plan</h3>
+                
+                <div class="form-group">
+                    <label>Syllabus ID:</label>
+                    <input type="number" id="syllabus-id" value="1">
+                </div>
+                
+                <div class="form-group">
+                    <label>Number of Sessions:</label>
+                    <input type="number" id="sessions-count" value="5" min="1" max="20">
+                </div>
+                
+                <div class="form-group">
+                    <label>Duration per Session (minutes):</label>
+                    <input type="number" id="session-duration" value="60" min="15" max="180">
+                </div>
+                
+                <button onclick="testGeneratePlan()">Generate Plan</button>
+                
+                <div id="course-result" class="result" style="display:none;"></div>
+            </div>
+            
+            <!-- Test Exercise Correction -->
+            <div class="card">
+                <h3>✅ Auto-Correct Exercise</h3>
+                
+                <div class="form-group">
+                    <label>Question:</label>
+                    <textarea id="exercise-question">Solve for x: 2x + 3 = 7</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Student's Answer:</label>
+                    <textarea id="exercise-answer">x = 2</textarea>
+                </div>
+                
+                <div class="form-group">
+                    <label>Expected Answer:</label>
+                    <textarea id="exercise-expected">x = 2</textarea>
+                </div>
+                
+                <button onclick="testCorrection()">Check Answer</button>
+                
+                <div id="correction-result" class="result" style="display:none;"></div>
+            </div>
+            
+            <!-- Test Syllabus Import -->
+            <div class="card">
+                <h3>📤 Upload Syllabus</h3>
+                
+                <div class="form-group">
+                    <label>Syllabus Text/Content:</label>
+                    <textarea id="syllabus-content">Math Basics
+                    
+Competencies:
+- Understand fractions
+- Basic operations
+- Problem solving
+
+Topics:
+1. Introduction to fractions
+2. Adding fractions
+3. Subtracting fractions</textarea>
+                </div>
+                
+                <button onclick="testSyllabusImport()">Upload Syllabus</button>
+                
+                <div id="syllabus-result" class="result" style="display:none;"></div>
+            </div>
+            
+            <!-- Raw Request Tester -->
+            <div class="card">
+                <h3>🔧 Raw Request</h3>
+                
+                <div class="form-group">
+                    <label>Endpoint:</label>
+                    <input type="text" id="raw-endpoint" placeholder="/api/auth/login">
+                </div>
+                
+                <div class="form-group">
+                    <label>Method:</label>
+                    <select id="raw-method">
+                        <option value="GET">GET</option>
+                        <option value="POST" selected>POST</option>
+                        <option value="PUT">PUT</option>
+                        <option value="DELETE">DELETE</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label>JSON Body:</label>
+                    <textarea id="raw-body">{}</textarea>
+                </div>
+                
+                <button onclick="testRawRequest()">Send Request</button>
+                
+                <div id="raw-result" class="result" style="display:none;"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const API_URL = 'http://localhost:8000';
+        
+        function showResult(elementId, success, data, message = '') {
+            const el = document.getElementById(elementId);
+            el.style.display = 'block';
+            el.className = 'result ' + (success ? 'success' : 'error');
+            
+            let content = message || (success ? '✅ Success!' : '❌ Error');
+            content += '\n\n' + JSON.stringify(data, null, 2);
+            
+            el.innerHTML = `<pre>${content}</pre>`;
+        }
+        
+        async function testLogin() {
+            const email = document.getElementById('auth-email').value;
+            const password = document.getElementById('auth-password').value;
+            
+            try {
+                const response = await fetch(API_URL + '/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                showResult('auth-result', response.ok, data);
+            } catch (e) {
+                showResult('auth-result', false, { error: e.message });
+            }
+        }
+        
+        async function testChat() {
+            const message = document.getElementById('chat-message').value;
+            const context = document.getElementById('chat-context').value;
+            
+            try {
+                const response = await fetch(API_URL + '/api/ai/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message, context: context || null }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                showResult('chat-result', response.ok, data);
+            } catch (e) {
+                showResult('chat-result', false, { error: e.message });
+            }
+        }
+        
+        async function testGeneratePlan() {
+            const syllabusId = document.getElementById('syllabus-id').value;
+            const numberSessions = parseInt(document.getElementById('sessions-count').value);
+            const durationPerSession = parseInt(document.getElementById('session-duration').value);
+            
+            try {
+                const response = await fetch(API_URL + '/api/ai/generate-course-plan', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        syllabus_id: syllabusId,
+                        number_sessions: numberSessions,
+                        duration_per_session: durationPerSession,
+                        student_level: 'intermediate'
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                showResult('course-result', response.ok, data);
+            } catch (e) {
+                showResult('course-result', false, { error: e.message });
+            }
+        }
+        
+        async function testCorrection() {
+            const question = document.getElementById('exercise-question').value;
+            const studentAnswer = document.getElementById('exercise-answer').value;
+            const expectedAnswer = document.getElementById('exercise-expected').value;
+            
+            try {
+                const response = await fetch(API_URL + '/api/ai/correct-exercise', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        question,
+                        student_answer: studentAnswer,
+                        expected_answer: expectedAnswer
+                    }),
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                showResult('correction-result', response.ok, data);
+            } catch (e) {
+                showResult('correction-result', false, { error: e.message });
+            }
+        }
+        
+        async function testSyllabusImport() {
+            const content = document.getElementById('syllabus-content').value;
+            
+            try {
+                const formData = new FormData();
+                const blob = new Blob([content], { type: 'text/plain' });
+                formData.append('file', blob, 'syllabus.txt');
+                
+                const response = await fetch(API_URL + '/api/syllabus/import', {
+                    method: 'POST',
+                    body: formData,
+                    credentials: 'include'
+                });
+                
+                const data = await response.json();
+                showResult('syllabus-result', response.ok, data);
+            } catch (e) {
+                showResult('syllabus-result', false, { error: e.message });
+            }
+        }
+        
+        async function testRawRequest() {
+            const endpoint = document.getElementById('raw-endpoint').value;
+            const method = document.getElementById('raw-method').value;
+            const body = document.getElementById('raw-body').value;
+            
+            try {
+                const options = {
+                    method,
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include'
+                };
+                
+                if (method !== 'GET' && body && body !== '{}') {
+                    options.body = body;
+                }
+                
+                const response = await fetch(API_URL + endpoint, options);
+                const data = await response.json().catch(() => ({ error: 'Not JSON' }));
+                showResult('raw-result', response.ok, data, `${method} ${endpoint}`);
+            } catch (e) {
+                showResult('raw-result', false, { error: e.message });
+            }
+        }
+    </script>
+</body>
+</html>

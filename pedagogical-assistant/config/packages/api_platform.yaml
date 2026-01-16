@@ -1,0 +1,8 @@
+api_platform:
+    title: Pedagogical Assistant API
+    version: 1.0.0
+    description: "IA-powered course planning and exercise generation system"
+    defaults:
+        stateless: true
+        cache_headers:
+            vary: ['Content-Type', 'Authorization', 'Origin']

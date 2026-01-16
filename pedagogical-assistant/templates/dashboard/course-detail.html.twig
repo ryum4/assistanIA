@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Détail Cours</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f5f7fa;
+        }
+        .navbar {
+            background: white;
+            padding: 15px 30px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .navbar h2 { color: #667eea; }
+        .navbar a { color: #667eea; margin-left: 20px; text-decoration: none; cursor: pointer; }
+        .container { max-width: 1000px; margin: 30px auto; padding: 0 20px; }
+        h1 { color: #333; margin-bottom: 20px; }
+        .sessions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .session-card {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .session-card h3 { color: #667eea; margin-bottom: 10px; }
+        .session-card p { color: #666; font-size: 14px; margin-bottom: 15px; }
+        .exercises-list { margin-top: 15px; padding-top: 15px; border-top: 1px solid #eee; }
+        .exercise-item {
+            padding: 8px 0;
+            font-size: 13px;
+            color: #666;
+        }
+        button {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        button:hover { background: #5568d3; }
+    </style>
+</head>
+<body>
+    <div class="navbar">
+        <h2>📚 Pedagogical Assistant</h2>
+        <div>
+            <a href="/courses">← Retour aux cours</a>
+            <a href="#" onclick="logout()">Déconnexion</a>
+        </div>
+    </div>
+
+    <div class="container">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 id="courseTitle">Plan de cours</h1>
+            <button onclick="deleteCourse()" style="background: #dc3545; padding: 10px 20px;">🗑️ Supprimer ce cours</button>
+        </div>
+        <div id="sessionsList" class="sessions-grid"></div>
+    </div>
+
+    <script>
+        const courseId = {{ courseId }};
+
+        async function loadCourseDetail() {
+            try {
+                const resp = await fetch(`/api/course_plans/${courseId}`);
+                if (!resp.ok) {
+                    document.getElementById('sessionsList').innerHTML = '<p>Cours non trouvé</p>';
+                    return;
+                }
+
+                const course = await resp.json();
+                console.log('Full course object:', JSON.stringify(course, null, 2));
+                
+                document.getElementById('courseTitle').textContent = `Plan de cours #${course.id}`;
+
+                // Les sessions sont des IRIs (URLs), il faut les charger complètement
+                const sessionIris = course.sessions || [];
+                console.log('Session IRIs found:', sessionIris.length);
+
+                if (!sessionIris || sessionIris.length === 0) {
+                    document.getElementById('sessionsList').innerHTML = '<p>Aucune session trouvée</p>';
+                    return;
+                }
+
+                // Charger toutes les sessions
+                const sessions = await Promise.all(
+                    sessionIris.map(iri => 
+                        fetch(iri).then(r => r.json())
+                    )
+                );
+
+                console.log('Loaded sessions:', sessions);
+
+                document.getElementById('sessionsList').innerHTML = sessions.map(sess => `
+                    <div class="session-card">
+                        <h3>${sess.titre || 'Sans titre'}</h3>
+                        <div>
+                            <strong>🎯 Objectifs:</strong>
+                            <ul>
+                                ${(sess.objectifs || []).map(obj => `<li>${obj}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div>
+                            <strong>📝 Contenus:</strong>
+                            <ul>
+                                ${(sess.contenus || []).map(c => `<li>${c}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div>
+                            <strong>🎮 Activités:</strong>
+                            <ul>
+                                ${(sess.activites || []).map(a => `<li>${a}</li>`).join('')}
+                            </ul>
+                        </div>
+                        <div class="exercises-list">
+                            <strong>État:</strong> ${sess.done ? '✓ Complétée' : '⏳ En cours'}
+                        </div>
+                        <button onclick="completeSession(${sess.id})">✓ Marquer complétée</button>
+                    </div>
+                `).join('');
+            } catch (err) {
+                console.error('Error loading course detail:', err);
+                document.getElementById('sessionsList').innerHTML = '<p>Erreur lors du chargement: ' + err.message + '</p>';
+            }
+        }
+
+        async function completeSession(sessionId) {
+            const resp = await fetch(`/api/sessions/${sessionId}/complete`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/ld+json' },
+                credentials: 'include',
+                body: JSON.stringify({ done: true })
+            });
+
+            if (resp.ok) {
+                alert('Session marquée comme complétée!');
+                loadCourseDetail();
+            }
+        }
+
+        async function deleteCourse() {
+            if (!confirm('Êtes-vous sûr de vouloir supprimer ce cours? Cette action est irréversible.')) {
+                return;
+            }
+
+            try {
+                const resp = await fetch(`/api/course_plans/${courseId}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/ld+json' }
+                });
+
+                if (resp.ok) {
+                    alert('Cours supprimé avec succès!');
+                    window.location.href = '/courses';
+                } else {
+                    alert('Erreur lors de la suppression du cours');
+                }
+            } catch (err) {
+                alert('Erreur: ' + err.message);
+            }
+        }
+
+        function logout() {
+            fetch('/api/auth/logout', {method: 'POST'}).then(() => window.location.href = '/login');
+        }
+
+        loadCourseDetail();
+    </script>
+</body>
+</html>
